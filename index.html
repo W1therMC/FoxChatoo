@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FoxChat2 - Retro Terminal Chat</title>
+<style>
+  body { 
+    font-family: 'Courier New', monospace; 
+    background: radial-gradient(ellipse at center, #1a0033 0%, #000000 100%);
+    color: #bb66ff; 
+    margin: 0; 
+    padding: 0; 
+    overflow: auto;
+    min-height: 100vh;
+    text-shadow: 0 0 5px #bb66ff;
+  }
+  
+  #terminal { 
+    padding: 20px; 
+    white-space: pre-wrap; 
+    font-size: 14px;
+    line-height: 1.4;
+    min-height: 100vh;
+    display: block;
+  }
+  
+  #chatContainer { 
+    display: none; 
+    flex-direction: column; 
+    height: 100vh; 
+  }
+  
+  #messages { 
+    flex: 1; 
+    overflow-y: auto; 
+    padding: 15px; 
+    background: linear-gradient(145deg, #0a0a0a, #1a1a1a); 
+    border: 2px solid #bb66ff;
+    margin: 10px;
+    border-radius: 8px;
+    box-shadow: inset 0 0 20px rgba(187, 102, 255, 0.1), 0 0 20px rgba(187, 102, 255, 0.2);
+  }
+  
+  #inputBox { 
+    display: flex; 
+    margin: 10px;
+    gap: 5px;
+  }
+  
+  #inputBox input { 
+    flex: 1; 
+    padding: 12px; 
+    border: 2px solid #bb66ff; 
+    outline: none; 
+    background: linear-gradient(145deg, #111, #222); 
+    color: #bb66ff; 
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 3px #bb66ff;
+    box-shadow: inset 0 0 10px rgba(187, 102, 255, 0.1);
+  }
+  
+  #inputBox button { 
+    padding: 12px 20px; 
+    background: linear-gradient(145deg, #bb66ff, #9944cc); 
+    color: #000; 
+    border: 2px solid #bb66ff; 
+    cursor: pointer; 
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    transition: all 0.3s;
+    box-shadow: 0 0 15px rgba(187, 102, 255, 0.3);
+    text-shadow: none;
+  }
+  
+  #inputBox button:hover {
+    background: linear-gradient(145deg, #9944cc, #7722aa);
+    box-shadow: 0 0 25px rgba(187, 102, 255, 0.5);
+    transform: translateY(-2px);
+  }
+  
+  #vhsToggle { 
+    position: fixed; 
+    top: 10px; 
+    right: 10px; 
+    padding: 8px 12px; 
+    background: linear-gradient(145deg, #333, #555); 
+    color: #bb66ff; 
+    cursor: pointer; 
+    border: 2px solid #bb66ff;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    transition: all 0.3s;
+    box-shadow: 0 0 10px rgba(187, 102, 255, 0.3);
+    text-shadow: 0 0 3px #bb66ff;
+    z-index: 9999;
+  }
+  
+  #vhsToggle:hover {
+    background: linear-gradient(145deg, #555, #777);
+    box-shadow: 0 0 15px rgba(187, 102, 255, 0.5);
+    transform: translateY(-2px);
+  }
+  
+  #langToggle { 
+    position: fixed; 
+    top: 10px; 
+    right: 120px; 
+    padding: 8px 12px; 
+    background: linear-gradient(145deg, #333, #555); 
+    color: #bb66ff; 
+    cursor: pointer; 
+    border: 2px solid #bb66ff;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    transition: all 0.3s;
+    box-shadow: 0 0 10px rgba(187, 102, 255, 0.3);
+    text-shadow: 0 0 3px #bb66ff;
+  }
+  
+  #langToggle:hover {
+    background: linear-gradient(145deg, #555, #777);
+    box-shadow: 0 0 15px rgba(187, 102, 255, 0.5);
+    transform: translateY(-2px);
+  }
+  
+  #roomCodeDisplay {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    padding: 8px 12px;
+    background: linear-gradient(145deg, #333, #555);
+    color: #bb66ff;
+    border: 2px solid #bb66ff;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    box-shadow: 0 0 10px rgba(187, 102, 255, 0.3);
+    text-shadow: 0 0 3px #bb66ff;
+    z-index: 9998;
+  }
+  
+  .vhs { 
+    filter: contrast(1.1) saturate(1.3) hue-rotate(5deg) brightness(0.95); 
+    animation: vhsFlicker 0.8s infinite ease-in-out;
+    position: relative;
+  }
+  
+  .vhs::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(255, 255, 255, 0.02) 3px,
+      rgba(255, 255, 255, 0.02) 6px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+  
+  @keyframes vhsFlicker {
+    0% { 
+      filter: contrast(1.1) saturate(1.3) hue-rotate(5deg) brightness(0.95);
+    }
+    50% { 
+      filter: contrast(1.15) saturate(1.35) hue-rotate(7deg) brightness(0.92);
+    }
+    100% { 
+      filter: contrast(1.1) saturate(1.3) hue-rotate(5deg) brightness(0.95);
+    }
+  }
+  
+  .system-message {
+    color: orange !important;
+    font-style: italic;
+  }
+  
+  .admin-badge {
+    color: yellow;
+    font-weight: bold;
+  }
+  
+  .terminal-header {
+    color: #bb66ff;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
+    text-shadow: 0 0 8px #bb66ff;
+  }
+  
+  .terminal-prompt {
+    display: flex;
+    align-items: center;
+    margin: 8px 0;
+    font-family: 'Courier New', monospace;
+  }
+  
+  .prompt-symbol {
+    color: #bb66ff;
+    font-weight: bold;
+    margin-right: 8px;
+    text-shadow: 0 0 5px #bb66ff;
+  }
+  
+  .prompt-text {
+    color: #bb66ff;
+    margin-right: 8px;
+    min-width: 80px;
+  }
+  
+  .terminal-input {
+    background: transparent;
+    color: #bb66ff;
+    border: none;
+    border-bottom: 1px solid #bb66ff;
+    padding: 4px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    outline: none;
+    flex: 1;
+    text-shadow: 0 0 3px #bb66ff;
+  }
+  
+  .terminal-input:focus {
+    border-bottom: 2px solid #bb66ff;
+    box-shadow: 0 2px 5px rgba(187, 102, 255, 0.3);
+  }
+  
+  .terminal-button {
+    background: transparent;
+    color: #bb66ff;
+    border: 1px solid #bb66ff;
+    padding: 6px 15px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    transition: all 0.3s;
+    text-shadow: 0 0 3px #bb66ff;
+  }
+  
+  .terminal-button:hover {
+    background: rgba(187, 102, 255, 0.1);
+    box-shadow: 0 0 10px rgba(187, 102, 255, 0.5);
+  }
+  
+  .terminal-info {
+    margin-top: 15px;
+    font-size: 11px;
+    color: #888;
+    font-family: 'Courier New', monospace;
+    line-height: 1.4;
+  }
+  
+  .terminal-info div {
+    margin: 2px 0;
+  }
+  
+  .whisper-message {
+    color: #ffaa00 !important;
+    font-style: italic;
+    background: rgba(255, 170, 0, 0.1);
+    padding: 3px 6px;
+    border-radius: 4px;
+    border-left: 3px solid #ffaa00;
+  }
+  
+  @keyframes messageSlideIn {
+    0% {
+      transform: translateX(-20px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  .message {
+    animation: messageSlideIn 0.3s ease-out;
+  }
+  
+  .message {
+    margin: 2px 0;
+    padding: 2px;
+    word-wrap: break-word;
+  }
+  
+  .user-message {
+    color: #bb66ff;
+  }
+  
+  /* Scrollbar styling */
+  #messages::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  #messages::-webkit-scrollbar-track {
+    background: #111;
+  }
+  
+  #messages::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+  }
+  
+  #messages::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  @keyframes matrixRain {
+    0% { 
+      background: radial-gradient(ellipse at center, #1a0033 0%, #000000 100%);
+      text-shadow: 0 0 5px #bb66ff;
+    }
+    50% { 
+      background: radial-gradient(ellipse at center, #2a0044 0%, #1a0033 100%);
+      text-shadow: 0 0 10px #bb66ff, 0 0 20px #bb66ff;
+    }
+    100% { 
+      background: radial-gradient(ellipse at center, #1a0033 0%, #000000 100%);
+      text-shadow: 0 0 5px #bb66ff;
+    }
+  }
+
+  @media (max-width: 768px) {
+    #terminal {
+      font-size: 11px;
+      padding: 10px;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    
+    #loginForm {
+      padding: 10px;
+    }
+    
+    #vhsToggle, #langToggle {
+      font-size: 10px;
+      padding: 6px 8px;
+    }
+    
+    #langToggle {
+      right: 90px;
+    }
+    
+    #roomCodeDisplay {
+      font-size: 10px;
+      padding: 6px 8px;
+      top: 60px;
+    }
+    
+    #inputBox input {
+      font-size: 14px;
+    }
+    
+    #messages {
+      font-size: 13px;
+    }
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js" integrity="sha384-LFHHt2gh+ZVF3Yfw912Cs+kYVg6LqRbNL2tVLBIMRTYADo3NduyRy5ucePbmwpzS" crossorigin="anonymous"></script>
+  }
+</style>
+</head>
+<body>
+
+<div id="vhsToggle">VHS: Off</div>
+
+<div id="terminal"></div>
+
+<div id="chatContainer">
+  <div id="langToggle">🌐 EN</div>
+  <div id="roomCodeDisplay"></div>
+  <div id="messages"></div>
+  <div id="inputBox">
+    <input id="chatInput" placeholder="Type message or use /commands..." maxlength="500">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+// DOM Elements
+let terminal = document.getElementById('terminal');
+let chatContainer = document.getElementById('chatContainer');
+let messagesDiv = document.getElementById('messages');
+let chatInput = document.getElementById('chatInput');
+let vhsToggle = document.getElementById('vhsToggle');
+let langToggle = document.getElementById('langToggle');
+let roomCodeDisplay = document.getElementById('roomCodeDisplay');
+
+// Application State
+let rooms = {};
+let currentRoom = null;
+let username = '';
+let isAdmin = false;
+let lastMessageTime = 0;
+let vhsOn = false;
+let currentSeed = '';
+let currentLang = 'en';
+const MAX_MESSAGES = 200;
+
+// Clean expired mutes
+function cleanExpiredMutes() {
+  if (currentRoom && currentRoom.mutedUsers) {
+    let now = Date.now();
+    for (let user in currentRoom.mutedUsers) {
+      if (currentRoom.mutedUsers[user] <= now) {
+        delete currentRoom.mutedUsers[user];
+        if (currentRoom.users[user]) {
+          addSystemMessage(`${user} ${t('userUnmuted')}`);
+        }
+      }
+    }
+  }
+}
+
+// Language Support
+const translations = {
+  en: {
+    welcome: "Welcome to FoxChat2!",
+    username: "Username:",
+    roomSeed: "Room Seed:",
+    random: "Random",
+    startChat: "Start Chat",
+    enterUsername: "Enter your username",
+    enterRoomCode: "Room code (can be left empty)",
+    seedInfo: "• Empty seed will generate random one",
+    adminInfo: "• First user becomes room admin",
+    ramInfo: "• Messages stored only in browser memory",
+    typeMessage: "Type message or use /commands...",
+    send: "Send",
+    enterUsernameAlert: "Please enter a username!",
+    wrongPassword: "Wrong password! Access denied.",
+    roomFull: "This room is full! Maximum user limit reached.",
+    passwordProtected: "This room is password protected! Enter password:",
+    welcome_user: "Welcome",
+    room: "Room",
+    admin: "Admin",
+    userCount: "Room user count",
+    wait: "Wait!",
+    secondsLeft: "seconds until you can send a message.",
+    usage: "Usage",
+    userNotFound: "User not found",
+    cantKickSelf: "You can't kick yourself!",
+    kicked: "was kicked from the room.",
+    passwordSet: "Room password set",
+    passwordRemoved: "Room password removed.",
+    maxUsers: "Maximum user count",
+    enterValidNumber: "Enter a valid number (minimum 1)",
+    alreadyAdmin: "You're already an admin!",
+    adminTransferred: "Admin rights transferred to",
+    transferredAdmin: "transferred admin rights to",
+    nowAdmin: "You are now an admin!",
+    newAdmin: "is the new admin.",
+    unknownAdminCmd: "Unknown admin command. Available commands: /setpassword, /kick, /maxuser, /setadmin, /roominfo, /whisper, /lock, /unlock, /mute, /stats, /exit",
+    unknownCmd: "Unknown command. Available commands: /exit, /clearchat, /roominfo, /whisper",
+    messagesCleared: "Messages cleared (only in your browser).",
+    roomInfo: "--- Room Information ---",
+    roomCode: "Room Code",
+    users: "Users",
+    unlimited: "Unlimited",
+    passwordProtectedInfo: "Password Protected",
+    yes: "Yes",
+    no: "No",
+    roomEmpty: "Room was reset because it became empty.",
+    leftRoom: "left the room.",
+    roomLocked: "Room has been locked. New users cannot join.",
+    roomUnlocked: "Room has been unlocked. New users can join again.",
+    roomIsLocked: "This room is locked. You cannot join.",
+    userMuted: "has been muted for",
+    userUnmuted: "has been unmuted",
+    youAreMuted: "You are muted and cannot send messages.",
+    mutedFor: "You are muted for",
+    minutes: "minutes",
+    statsTitle: "Room Statistics",
+    totalMessages: "Total messages",
+    mostActive: "Most active user",
+    with: "with",
+    messages: "messages",
+    system: "System"
+  },
+  tr: {
+    welcome: "FoxChat2'ye Hoşgeldiniz!",
+    username: "Kullanıcı Adı:",
+    roomSeed: "Oda Seed'i:",
+    random: "Rastgele",
+    startChat: "Sohbete Başla",
+    enterUsername: "Kullanıcı adınızı girin",
+    enterRoomCode: "Oda kodu (boş bırakılabilir)",
+    seedInfo: "• Boş seed bırakılırsa rastgele oluşturulur",
+    adminInfo: "• İlk giren kullanıcı odanın yöneticisi olur",
+    ramInfo: "• Mesajlar sadece tarayıcı belleğinde saklanır",
+    typeMessage: "Mesaj yaz veya /komut kullan...",
+    send: "Gönder",
+    enterUsernameAlert: "Lütfen bir kullanıcı adı girin!",
+    wrongPassword: "Yanlış şifre! Giriş reddedildi.",
+    roomFull: "Bu oda dolu! Maksimum kullanıcı sayısına ulaşılmış.",
+    passwordProtected: "Bu oda şifreli! Şifreyi giriniz:",
+    welcome_user: "Hoşgeldin",
+    room: "Oda",
+    admin: "Yönetici",
+    userCount: "Oda kullanıcı sayısı",
+    wait: "Bekle!",
+    secondsLeft: "saniye sonra mesaj gönderebilirsin.",
+    usage: "Kullanım",
+    userNotFound: "Kullanıcı bulunamadı",
+    cantKickSelf: "Kendini atamazsın!",
+    kicked: "odadan atıldı.",
+    passwordSet: "Oda şifresi ayarlandı",
+    passwordRemoved: "Oda şifresi kaldırıldı.",
+    maxUsers: "Maksimum kullanıcı sayısı",
+    enterValidNumber: "Geçerli bir sayı girin (minimum 1)",
+    alreadyAdmin: "Zaten yöneticisin!",
+    adminTransferred: "Yönetici yetkisi şu kişiye devredildi",
+    transferredAdmin: "yönetici yetkisini şu kişiye devretti",
+    nowAdmin: "Artık sen yöneticisin!",
+    newAdmin: "yeni yönetici oldu.",
+    unknownAdminCmd: "Bilinmeyen yönetici komutu. Kullanılabilir komutlar: /setpassword, /kick, /maxuser, /setadmin, /roominfo, /whisper, /lock, /unlock, /mute, /stats, /exit",
+    unknownCmd: "Bilinmeyen komut. Kullanılabilir komutlar: /exit, /clearchat, /roominfo, /whisper",
+    messagesCleared: "Mesajlar temizlendi (sadece senin tarayıcında).",
+    roomInfo: "--- Oda Bilgileri ---",
+    roomCode: "Oda Kodu",
+    users: "Kullanıcılar",
+    unlimited: "Sınırsız",
+    passwordProtectedInfo: "Şifre Korumalı",
+    yes: "Evet",
+    no: "Hayır",
+    roomEmpty: "Oda boşaldığı için temizlendi.",
+    leftRoom: "odadan çıktı.",
+    roomLocked: "Oda kilitlendi. Yeni kullanıcılar katılamaz.",
+    roomUnlocked: "Oda kilidi açıldı. Yeni kullanıcılar tekrar katılabilir.",
+    roomIsLocked: "Bu oda kilitli. Katılamazsınız.",
+    userMuted: "sessize alındı, süre:",
+    userUnmuted: "sessize alma kaldırıldı",
+    youAreMuted: "Sessize alındınız ve mesaj gönderemezsiniz.",
+    mutedFor: "Sessize alındınız, süre:",
+    minutes: "dakika",
+    statsTitle: "Oda İstatistikleri",
+    totalMessages: "Toplam mesaj",
+    mostActive: "En aktif kullanıcı",
+    with: "ile",
+    messages: "mesaj",
+    system: "Sistem"
+  }
+};
+
+function t(key) {
+  return translations[currentLang][key] || key;
+}
+
+// Terminal Intro Animation
+function terminalIntro() {
+  let intro = `C:\\FOXCHAT2> Starting system...
+
+FOXCHAT2 v2.0 - Retro Terminal Chat
+======================================
+
+Loading... [OK]
+Connecting... [OK]
+Ready!
+
+`;
+  
+  let i = 0;
+  terminal.textContent = '';
+  
+  let interval = setInterval(() => {
+    if (i < intro.length) {
+      terminal.textContent += intro[i];
+      i++;
+    } else {
+      clearInterval(interval);
+      setTimeout(showLogin, 800);
+    }
+  }, 40);
+}
+
+// Login Screen
+function showLogin() {
+  terminal.innerHTML = `
+<div id="loginForm">
+  <div class="terminal-header">${t('welcome')}</div>
+  <br>
+  <div class="terminal-prompt">
+    <span class="prompt-symbol">$</span> <span class="prompt-text">${t('username').toLowerCase()}:</span>
+    <input type="text" id="loginUser" class="terminal-input" maxlength="20">
+  </div>
+  <br>
+  <div class="terminal-prompt">
+    <span class="prompt-symbol">$</span> <span class="prompt-text">${t('roomSeed').toLowerCase()}:</span>
+    <input type="text" id="loginSeed" class="terminal-input" maxlength="20">
+  </div>
+  <br><br>
+  <div class="terminal-prompt">
+    <span class="prompt-symbol">></span> <button onclick="startChat()" class="terminal-button">${t('startChat')}</button>
+  </div>
+  <br>
+  <div class="terminal-info">
+    <div>// ${t('seedInfo')}</div>
+    <div>// ${t('adminInfo')}</div>
+    <div>// ${t('ramInfo')}</div>
+  </div>
+</div>
+  `;
+  
+  // Enter key support for inputs
+  document.getElementById('loginUser').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') startChat();
+  });
+  
+  document.getElementById('loginSeed').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') startChat();
+  });
+}
+
+
+// Start Chat Session
+function startChat() {
+  let userInput = document.getElementById('loginUser').value.trim();
+  let seedInput = document.getElementById('loginSeed').value.trim();
+  
+  // Validate username
+  if (!userInput) {
+    alert(t('enterUsernameAlert'));
+    return;
+  }
+  
+  // Generate seed if empty
+  if (!seedInput) {
+    seedInput = Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+  
+  currentSeed = seedInput;
+  
+  // Create or get room
+  if (!rooms[seedInput]) {
+    rooms[seedInput] = { 
+      users: {}, 
+      messages: [], 
+      password: null, 
+      maxUser: Infinity,
+      locked: false,
+      mutedUsers: {},
+      userStats: {},
+      createdAt: Date.now()
+    };
+  }
+  
+  currentRoom = rooms[seedInput];
+  
+  // Check if room is locked for new users
+  if (currentRoom.locked && !currentRoom.users[usernameInput]) {
+    alert(t('roomIsLocked'));
+    return;
+  }
+  
+  // Check password protection
+  if (currentRoom.password) {
+    let pw = prompt(t('passwordProtected'));
+    if (pw !== currentRoom.password) {
+      alert(t('wrongPassword'));
+      return;
+    }
+  }
+  
+  // Check max user limit
+  if (Object.keys(currentRoom.users).length >= currentRoom.maxUser) {
+    alert(t('roomFull'));
+    return;
+  }
+  
+  // Handle duplicate usernames
+  let originalUsername = userInput;
+  let counter = 1;
+  while (currentRoom.users[userInput]) {
+    userInput = originalUsername + '(' + counter + ')';
+    counter++;
+  }
+  
+  username = userInput;
+  
+  // Add user to room
+  currentRoom.users[username] = { 
+    joinedAt: Date.now(),
+    lastMsg: 0,
+    isAdmin: false
+  };
+  
+  // Initialize user stats
+  if (!currentRoom.userStats[username]) {
+    currentRoom.userStats[username] = {
+      messageCount: 0,
+      joinedAt: Date.now()
+    };
+  }
+  
+  // Determine admin status
+  isAdmin = Object.keys(currentRoom.users).length === 1;
+  if (isAdmin) {
+    currentRoom.users[username].isAdmin = true;
+  }
+  
+  // Switch to chat interface
+  terminal.style.display = 'none';
+  chatContainer.style.display = 'flex';
+  
+  // Load existing messages
+  loadRoomMessages();
+  
+  // Welcome message
+  addSystemMessage(`${t('welcome_user')} ${username}! ${t('room')}: ${seedInput} ${isAdmin ? '(' + t('admin') + ')' : ''}`);
+  addSystemMessage(`${t('userCount')}: ${Object.keys(currentRoom.users).length}`);
+  
+  // Update room code display
+  roomCodeDisplay.textContent = `Room: ${seedInput}`;
+  
+  // Update input placeholder
+  chatInput.placeholder = t('typeMessage');
+  
+  // Focus input
+  chatInput.focus();
+  
+  // Enter key support for chat
+  chatInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') sendMessage();
+  });
+}
+
+// Load Room Messages
+function loadRoomMessages() {
+  messagesDiv.innerHTML = '';
+  currentRoom.messages.forEach(msg => {
+    if (msg.type === 'system') {
+      addSystemMessage(msg.text, false);
+    } else if (msg.type === 'whisper') {
+      // Only show whispers for the intended recipient or sender
+      if (msg.to === username || msg.from === username) {
+        addWhisperMessage(msg.from, msg.to, msg.message, msg.from === username);
+      }
+    } else {
+      addChatMessage(msg.user, msg.text, false);
+    }
+  });
+}
+
+// Send Message
+function sendMessage() {
+  let text = chatInput.value.trim();
+  if (!text) return;
+  
+  let now = Date.now();
+  
+  // Check if user is muted
+  if (currentRoom.mutedUsers[username] && currentRoom.mutedUsers[username] > now) {
+    let remaining = Math.ceil((currentRoom.mutedUsers[username] - now) / 60000);
+    addSystemMessage(`${t('mutedFor')} ${remaining} ${t('minutes')}`);
+    return;
+  }
+  
+  // Rate limiting
+  if (now - lastMessageTime < 3000) {
+    let remaining = Math.ceil((3000 - (now - lastMessageTime)) / 1000);
+    addSystemMessage(`${t('wait')} ${remaining} ${t('secondsLeft')}`);
+    return;
+  }
+  
+  lastMessageTime = now;
+  currentRoom.users[username].lastMsg = now;
+  
+  // Handle commands
+  if (text.startsWith('/')) {
+    handleCommand(text);
+  } else {
+    // Send regular message
+    addChatMessage(username, text);
+    currentRoom.messages.push({
+      type: 'chat',
+      user: username,
+      text: text,
+      timestamp: now
+    });
+    
+    // Update user stats
+    if (!currentRoom.userStats[username]) {
+      currentRoom.userStats[username] = { messageCount: 0 };
+    }
+    currentRoom.userStats[username].messageCount++;
+    
+    // Check message limit
+    if (currentRoom.messages.length > MAX_MESSAGES) {
+      currentRoom.messages.splice(0, currentRoom.messages.length - MAX_MESSAGES);
+    }
+  }
+  
+  chatInput.value = '';
+}
+
+// Handle Commands
+function handleCommand(cmd) {
+  let parts = cmd.split(' ');
+  let command = parts[0].toLowerCase();
+  
+  // Admin commands
+  if (isAdmin) {
+    switch (command) {
+      case '/setpassword':
+        let newPassword = parts.slice(1).join(' ') || null;
+        currentRoom.password = newPassword;
+        if (newPassword) {
+          addSystemMessage(`${t('passwordSet')}: "${newPassword}"`);
+        } else {
+          addSystemMessage(t('passwordRemoved'));
+        }
+        break;
+        
+      case '/kick':
+        let targetUser = parts[1];
+        if (!targetUser) {
+          addSystemMessage(`${t('usage')}: /kick <user_name>`);
+          return;
+        }
+        if (!currentRoom.users[targetUser]) {
+          addSystemMessage(`${t('userNotFound')}: ` + targetUser);
+          return;
+        }
+        if (targetUser === username) {
+          addSystemMessage(t('cantKickSelf'));
+          return;
+        }
+        delete currentRoom.users[targetUser];
+        addSystemMessage(`${targetUser} ${t('kicked')}`);
+        currentRoom.messages.push({
+          type: 'system',
+          text: `${targetUser} ${t('kicked')}`,
+          timestamp: Date.now()
+        });
+        checkAdminAfterKick();
+        break;
+        
+      case '/maxuser':
+        let maxUsers = parseInt(parts[1]);
+        if (isNaN(maxUsers) || maxUsers < 1) {
+          addSystemMessage(t('enterValidNumber'));
+          return;
+        }
+        currentRoom.maxUser = maxUsers;
+        addSystemMessage(`${t('maxUsers')}: ${maxUsers}`);
+        break;
+        
+      case '/setadmin':
+        let newAdmin = parts[1];
+        if (!newAdmin) {
+          addSystemMessage(`${t('usage')}: /setadmin <user_name>`);
+          return;
+        }
+        if (!currentRoom.users[newAdmin]) {
+          addSystemMessage(`${t('userNotFound')}: ` + newAdmin);
+          return;
+        }
+        if (newAdmin === username) {
+          addSystemMessage(t('alreadyAdmin'));
+          return;
+        }
+        
+        // Transfer admin rights
+        currentRoom.users[username].isAdmin = false;
+        currentRoom.users[newAdmin].isAdmin = true;
+        isAdmin = false;
+        
+        addSystemMessage(`${t('adminTransferred')} ${newAdmin}.`);
+        currentRoom.messages.push({
+          type: 'system',
+          text: `${username} ${t('transferredAdmin')} ${newAdmin}.`,
+          timestamp: Date.now()
+        });
+        break;
+        
+      case '/exit':
+        exitRoom();
+        break;
+        
+      case '/roominfo':
+        showRoomInfo();
+        break;
+        
+      case '/whisper':
+        handleWhisper(parts);
+        break;
+        
+      case '/lock':
+        currentRoom.locked = true;
+        addSystemMessage(t('roomLocked'));
+        break;
+        
+      case '/unlock':
+        currentRoom.locked = false;
+        addSystemMessage(t('roomUnlocked'));
+        break;
+        
+      case '/mute':
+        handleMute(parts);
+        break;
+        
+      case '/stats':
+        showStats();
+        break;
+        
+      default:
+        addSystemMessage(t('unknownAdminCmd'));
+    }
+  } else {
+    // Regular user commands
+    switch (command) {
+      case '/exit':
+        exitRoom();
+        break;
+        
+      case '/clearchat':
+        messagesDiv.innerHTML = '';
+        addSystemMessage(t('messagesCleared'));
+        break;
+        
+      case '/roominfo':
+        showRoomInfo();
+        break;
+        
+      case '/whisper':
+        handleWhisper(parts);
+        break;
+        
+      default:
+        addSystemMessage(t('unknownCmd'));
+    }
+  }
+}
+
+// Handle Whisper Command
+function handleWhisper(parts) {
+  if (parts.length < 3) {
+    addSystemMessage(currentLang === 'en' ? 'Usage: /whisper <username> <message>' : 'Kullanım: /whisper <kullanıcı_adı> <mesaj>');
+    return;
+  }
+  
+  let targetUser = parts[1];
+  let message = parts.slice(2).join(' ');
+  
+  if (!currentRoom.users[targetUser]) {
+    addSystemMessage(currentLang === 'en' ? `User not found: ${targetUser}` : `Kullanıcı bulunamadı: ${targetUser}`);
+    return;
+  }
+  
+  if (targetUser === username) {
+    addSystemMessage(currentLang === 'en' ? 'You cannot whisper to yourself!' : 'Kendine fısıldayamazsın!');
+    return;
+  }
+  
+  // Add whisper message for sender
+  addWhisperMessage(username, targetUser, message, true);
+  
+  // Store whisper in room messages for the target user
+  currentRoom.messages.push({
+    type: 'whisper',
+    from: username,
+    to: targetUser,
+    message: message,
+    timestamp: Date.now()
+  });
+}
+
+// Handle Mute Command (Admin only)
+function handleMute(parts) {
+  if (parts.length < 3) {
+    addSystemMessage(currentLang === 'en' ? 'Usage: /mute <username> <minutes>' : 'Kullanım: /mute <kullanıcı_adı> <dakika>');
+    return;
+  }
+  
+  let targetUser = parts[1];
+  let minutes = parseInt(parts[2]);
+  
+  if (isNaN(minutes) || minutes <= 0) {
+    addSystemMessage(currentLang === 'en' ? 'Please enter a valid number of minutes.' : 'Lütfen geçerli bir dakika sayısı girin.');
+    return;
+  }
+  
+  if (!currentRoom.users[targetUser]) {
+    addSystemMessage(currentLang === 'en' ? `User not found: ${targetUser}` : `Kullanıcı bulunamadı: ${targetUser}`);
+    return;
+  }
+  
+  if (targetUser === username) {
+    addSystemMessage(currentLang === 'en' ? 'You cannot mute yourself!' : 'Kendini susturamassın!');
+    return;
+  }
+  
+  // Set mute expiration time
+  currentRoom.mutedUsers[targetUser] = Date.now() + (minutes * 60000);
+  
+  addSystemMessage(`${targetUser} ${t('userMuted')} ${minutes} ${t('minutes')}`);
+  
+  // Add mute message to room
+  currentRoom.messages.push({
+    type: 'system',
+    text: `${targetUser} ${t('userMuted')} ${minutes} ${t('minutes')}`,
+    timestamp: Date.now()
+  });
+}
+
+// Show Room Statistics (Admin only)
+function showStats() {
+  addSystemMessage(t('statsTitle'));
+  addSystemMessage(`${t('totalMessages')}: ${currentRoom.messages.filter(msg => msg.type === 'chat').length}`);
+  
+  // Find most active user
+  let mostActive = '';
+  let maxMessages = 0;
+  
+  for (let user in currentRoom.userStats) {
+    if (currentRoom.userStats[user].messageCount > maxMessages) {
+      maxMessages = currentRoom.userStats[user].messageCount;
+      mostActive = user;
+    }
+  }
+  
+  if (mostActive) {
+    addSystemMessage(`${t('mostActive')}: ${mostActive} ${t('with')} ${maxMessages} ${t('messages')}`);
+  }
+  
+  // Show user list with message counts
+  let userList = Object.keys(currentRoom.users).map(user => {
+    let isUserAdmin = currentRoom.users[user].isAdmin;
+    let messageCount = currentRoom.userStats[user] ? currentRoom.userStats[user].messageCount : 0;
+    return `${user}${isUserAdmin ? ` (${t('admin')})` : ''}: ${messageCount} ${t('messages')}`;
+  }).join(', ');
+  
+  addSystemMessage(`${t('users')}: ${userList}`);
+  addSystemMessage(`--- --- ---`);
+}
+
+// Show Room Info
+function showRoomInfo() {
+  let userList = Object.keys(currentRoom.users).map(user => {
+    let isUserAdmin = currentRoom.users[user].isAdmin;
+    return user + (isUserAdmin ? ` (${t('admin')})` : '');
+  }).join(', ');
+  
+  addSystemMessage(t('roomInfo'));
+  addSystemMessage(`${t('roomCode')}: ${currentSeed}`);
+  addSystemMessage(`${t('users')} (${Object.keys(currentRoom.users).length}): ${userList}`);
+  addSystemMessage(`${t('maxUsers')}: ${currentRoom.maxUser === Infinity ? t('unlimited') : currentRoom.maxUser}`);
+  addSystemMessage(`${t('passwordProtectedInfo')}: ${currentRoom.password ? t('yes') : t('no')}`);
+  addSystemMessage(`--- --- ---`);
+}
+
+// Check Admin After Kick
+function checkAdminAfterKick() {
+  let remainingUsers = Object.keys(currentRoom.users);
+  
+  if (remainingUsers.length === 0) {
+    checkRoomEmpty();
+    return;
+  }
+  
+  // Check if there's still an admin
+  let hasAdmin = remainingUsers.some(user => currentRoom.users[user].isAdmin);
+  
+  if (!hasAdmin) {
+    // Randomly assign new admin
+    let newAdminUser = remainingUsers[Math.floor(Math.random() * remainingUsers.length)];
+    currentRoom.users[newAdminUser].isAdmin = true;
+    
+    if (newAdminUser === username) {
+      isAdmin = true;
+      addSystemMessage(t('nowAdmin'));
+    } else {
+      addSystemMessage(`${newAdminUser} ${t('newAdmin')}`);
+    }
+    
+    currentRoom.messages.push({
+      type: 'system',
+      text: `${newAdminUser} ${t('newAdmin')}`,
+      timestamp: Date.now()
+    });
+  }
+}
+
+// Check if Room is Empty
+function checkRoomEmpty() {
+  if (Object.keys(currentRoom.users).length === 0) {
+    // Reset room
+    currentRoom.messages = [];
+    currentRoom.password = null;
+    currentRoom.maxUser = Infinity;
+    currentRoom.locked = false;
+    currentRoom.mutedUsers = {};
+    currentRoom.userStats = {};
+    addSystemMessage(t('roomEmpty'));
+  }
+}
+
+// Exit Room
+function exitRoom() {
+  if (currentRoom && currentRoom.users[username]) {
+    delete currentRoom.users[username];
+    
+    // Add exit message to room
+    currentRoom.messages.push({
+      type: 'system',
+      text: `${username} ${t('leftRoom')}`,
+      timestamp: Date.now()
+    });
+    
+    checkAdminAfterKick();
+  }
+  
+  // Reset to login screen
+  currentRoom = null;
+  username = '';
+  isAdmin = false;
+  currentSeed = '';
+  
+  // Clear room code display
+  roomCodeDisplay.textContent = '';
+  
+  chatContainer.style.display = 'none';
+  terminal.style.display = 'block';
+  
+  setTimeout(showLogin, 500);
+}
+
+// Add Chat Message
+function addChatMessage(user, text, scroll = true) {
+  let msg = document.createElement('div');
+  msg.className = 'message user-message';
+  
+  // Create timestamp
+  let timestamp = new Date().toLocaleTimeString('tr-TR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  
+  msg.innerHTML = `<span style="color: #888;">[${timestamp}]</span> <strong>${escapeHtml(user)}:</strong> ${escapeHtml(text)}`;
+  
+  messagesDiv.appendChild(msg);
+  
+  if (scroll) {
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+}
+
+// Add Whisper Message
+function addWhisperMessage(from, to, message, isSender = false) {
+  let msg = document.createElement('div');
+  msg.className = 'message whisper-message';
+  
+  // Create timestamp
+  let timestamp = new Date().toLocaleTimeString('tr-TR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  
+  let whisperText;
+  if (isSender) {
+    whisperText = `<span style="color: #888;">[${timestamp}]</span> <strong>→ ${escapeHtml(to)}:</strong> ${escapeHtml(message)}`;
+  } else {
+    whisperText = `<span style="color: #888;">[${timestamp}]</span> <strong>${escapeHtml(from)} →:</strong> ${escapeHtml(message)}`;
+  }
+  
+  msg.innerHTML = whisperText;
+  messagesDiv.appendChild(msg);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Add System Message
+function addSystemMessage(text, scroll = true) {
+  let msg = document.createElement('div');
+  msg.className = 'message system-message';
+  
+  let timestamp = new Date().toLocaleTimeString('tr-TR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  
+  msg.innerHTML = `<span style="color: #888;">[${timestamp}]</span> <strong>[${t('system')}]</strong> ${escapeHtml(text)}`;
+  
+  messagesDiv.appendChild(msg);
+  
+  if (scroll) {
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+  let div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// VHS Toggle
+vhsToggle.onclick = () => {
+  vhsOn = !vhsOn;
+  if (vhsOn) {
+    chatContainer.classList.add('vhs');
+  } else {
+    chatContainer.classList.remove('vhs');
+  }
+  vhsToggle.textContent = 'VHS: ' + (vhsOn ? 'On' : 'Off');
+};
+
+// Language Toggle
+langToggle.onclick = () => {
+  currentLang = currentLang === 'en' ? 'tr' : 'en';
+  langToggle.textContent = '🌐 ' + currentLang.toUpperCase();
+  
+  // Update placeholder and button text
+  chatInput.placeholder = t('typeMessage');
+  document.querySelector('#inputBox button').textContent = t('send');
+  
+  // If we're on login screen, refresh it
+  if (terminal.style.display !== 'none') {
+    showLogin();
+  }
+};
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+  if (currentRoom && username) {
+    exitRoom();
+  }
+});
+
+// Clean expired mutes every 30 seconds
+setInterval(cleanExpiredMutes, 30000);
+
+// Initialize application
+terminalIntro();
+</script>
+
+</body>
+</html>
